@@ -1,0 +1,32 @@
+[package]
+name = "dokan"
+version = "0.3.1+dokan230"
+authors = ["DDoSolitary <DDoSolitary@gmail.com>"]
+description = "Rust-friendly wrapper for Dokan (user mode file system library for Windows)"
+homepage = "https://dokan-dev.github.io"
+repository = "https://github.com/dokan-dev/dokan-rust"
+documentation = "https://dokan-dev.github.io/dokan-rust-doc/html/dokan/"
+keywords = ["dokan", "bindings", "driver", "filesystem"]
+categories = ["external-ffi-bindings"]
+readme = "README.md"
+license = "MIT"
+edition = "2021"
+
+[badges]
+appveyor = { repository = "Liryna/dokan-rust" }
+
+[dependencies]
+bitflags = "2.9"
+dokan-sys = { path = "../dokan-sys" }
+widestring = "1.2"
+winapi = { version = "0.3", features = ["std", "errhandlingapi", "handleapi", "heapapi", "ioapiset", "minwinbase", "minwindef", "ntdef", "ntstatus", "processenv", "processthreadsapi", "sddl", "securitybaseapi", "synchapi", "winbase", "winerror", "winnt"] }
+
+[dev-dependencies]
+clap = "4.5"
+ctrlc = "3.4"
+lazy_static = "1.5"
+parking_lot = "0.12"
+regex = "1.11"
+
+[package.metadata.docs.rs]
+default-target = "x86_64-pc-windows-msvc"

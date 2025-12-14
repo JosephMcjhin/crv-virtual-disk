@@ -1,0 +1,147 @@
+branches:
+  only:
+    - master
+
+environment:
+  DOKAN_CONSOLE_DEBUG_LOG: 1
+  RUST_BACKTRACE: 1
+  AccessTokenDokanDoc:
+    secure: Z5/daTZ6OJaDbslmhxSxxB6leKaqHTnTbISy153Y4cdJm/oTAbDHaofb9TqvKXV1
+  matrix:
+    - ARCH: x86_64
+      TOOLCHAIN: msvc
+      UPLOAD_DOC: "true"
+    - ARCH: x86_64
+      TOOLCHAIN: msvc
+      USE_INSTALLED_LIB: "true"
+    - ARCH: i686
+      TOOLCHAIN: msvc
+    - ARCH: i686
+      TOOLCHAIN: msvc
+      USE_INSTALLED_LIB: "true"
+    - ARCH: x86_64
+      BITS: "64"
+      TOOLCHAIN: gnu
+    - ARCH: x86_64
+      BITS: "64"
+      TOOLCHAIN: gnu
+      USE_INSTALLED_LIB: "true"
+    - ARCH: i686
+      BITS: "32"
+      TOOLCHAIN: gnu
+    - ARCH: i686
+      BITS: "32"
+      TOOLCHAIN: gnu
+      USE_INSTALLED_LIB: "true"
+
+os: Visual Studio 2022
+platform: x64
+
+init:
+  - ps: |
+      function CheckLastExitCode($ExpectedExitCode = 0) {
+        if ($LastExitCode -ne $ExpectedExitCode) {
+          throw "execution failed with code '$LastExitCode' (expected '$ExpectedExitCode')"
+        }
+      }
+
+      function ExecuteExe {
+        Param(
+          [Parameter(Mandatory=$true)]
+          [String]
+          $Exe,
+          [Array]
+          [Parameter(ValueFromRemainingArguments=$true)]
+          $Arguments
+        )
+        & $Exe @Arguments
+        CheckLastExitCode
+      }
+
+install:
+  - ps: &download-dokany |
+      Invoke-WebRequest https://github.com/dokan-dev/dokany/releases/download/v2.3.0.1000/DokanSetup.exe -OutFile "$Env:TEMP\DokanSetup.exe"
+      Start-Process "$Env:TEMP\DokanSetup.exe" -ArgumentList '/quiet /norestart' -Wait
+
+      if ($Env:USE_INSTALLED_LIB -eq $true) {
+          $Env:DokanLibrary2_LibraryPath_x64 = 'C:\Program Files\Dokan\Dokan Library-2.3.0\lib\'
+          $Env:DokanLibrary2_LibraryPath_x86 = 'C:\Program Files\Dokan\Dokan Library-2.3.0\x86\lib\'
+      } else {
+          Remove-Item 'C:\Windows\System32\dokan2.dll'
+          Remove-Item 'C:\Windows\SysWOW64\dokan2.dll'
+      }
+
+  - ps: |
+      Invoke-WebRequest https://win.rustup.rs/x86_64 -OutFile "$Env:TEMP\rustup-init.exe"
+      & "$Env:TEMP\rustup-init.exe" -y --default-host "$Env:ARCH-pc-windows-$Env:TOOLCHAIN"
+      CheckLastExitCode
+      $Env:PATH = "$Env:PATH;C:\Users\appveyor\.cargo\bin"
+
+before_build:
+  - ps: $Version = (git describe --tags)
+  - ps: Update-AppveyorBuild -Version $Version
+  - cmd: git submodule update --init
+  - ps: |
+      if ($Env:USE_INSTALLED_LIB -ne $true) {
+          $Env:DOKAN_DLL_OUTPUT_PATH = "$Env:APPVEYOR_BUILD_FOLDER\target\release"
+      }
+
+build_script:
+  - cmd: cargo build --release --workspace --all-targets
+  - cmd: cargo doc --release --workspace
+
+test_script:
+  - cmd: cargo test --release --workspace
+  - cmd: cargo test --release --workspace -- --ignored
+
+deploy_script:
+  - ps: |
+      $ErrorActionPreference = "Stop"
+      if ($Env:APPVEYOR_REPO_TAG -ne $true -or $Env:UPLOAD_DOC -ne $true) {
+          return;
+      }
+      ExecuteExe -- git config --global user.email appveyor@appveyor.org
+      ExecuteExe -- git config --global user.name appveyor
+      ExecuteExe -- git clone https://lirynastark:$($Env:AccessTokenDokanDoc)@github.com/dokan-dev/dokan-rust-doc.git doc 2>&1
+      if (Test-Path doc\html) {
+          Remove-Item -Recurse -Force doc\html\*
+      } else {
+          mkdir doc\html
+      }
+      Copy-Item -Recurse target\doc\* doc\html\
+      cd doc
+      if ($(git status --porcelain)) {
+          Write-Host "Updating documentation..." -ForegroundColor Green
+          ExecuteExe -- git add -A 2>&1
+          ExecuteExe -- git commit -m "Automatically update documentation for $version" 2>&1
+          ExecuteExe -- git push 2>&1
+          Write-Host -ForegroundColor Green "Documentation updated!"
+      } else {
+          Write-Host -ForegroundColor Green "No documentation changes detected."
+      }
+
+for:
+  - matrix:
+      only:
+        - TOOLCHAIN: gnu
+
+    install:
+      - ps: *download-dokany
+      - ps: |
+          function ExecuteBash($SCRIPT) {
+            & "C:\msys64\mingw$Env:BITS.exe" -c $SCRIPT
+          }
+
+          ExecuteBash @"
+          pacman -Syu --noconfirm --noprogressbar
+          pacman -Syu --needed --noconfirm --noprogressbar
+          pacman -S mingw-w64-$ARCH-rust
+          "@
+
+    build_script:
+      - ps: ExecuteBash 'cargo build --release --workspace --all-targets'
+      - ps: ExecuteBash 'cargo doc --release --workspace'
+
+    test_script:
+      - ps: ExecuteBash 'cargo test --release --workspace'
+      - ps: ExecuteBash 'cargo test --release --workspace -- --ignored'

@@ -1,0 +1,29 @@
+<Project Sdk="WixToolset.Sdk/5.0.1">
+  <PropertyGroup>
+    <ProductVersion>3.9</ProductVersion>
+    <OutputName>DokanSetup</OutputName>
+    <OutputType>Bundle</OutputType>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <DefineConstants>Debug</DefineConstants>
+    <LinkerAdditionalOptions>-sw1132</LinkerAdditionalOptions>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <LinkerAdditionalOptions>-sw1132</LinkerAdditionalOptions>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Dependency.wixext" Version="5.0.1" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.1" />
+    <PackageReference Include="WixToolset.Bal.wixext" Version="5.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Resources\dokan.png" />
+    <Content Include="Resources\licdata.rtf" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Resources" />
+  </ItemGroup>
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="if /I &quot;$(ConfigurationName)&quot; == &quot;Release&quot; (&#xA;  &quot;%25WIX%25\bin\insignia.exe&quot; -ib &quot;$(TargetDir)$(TargetFileName)&quot; -o &quot;$(TargetDir)engine.exe&quot;&#xA;  &quot;%25SIGNTOOL%25&quot; sign /v /sha1 &quot;%25SHA1_CERTTHUMBPRINT%25&quot; /t http://timestamp.digicert.com &quot;$(TargetDir)engine.exe&quot;&#xA;  &quot;%25SIGNTOOL%25&quot; sign /v /tr http://timestamp.digicert.com /td sha256 /fd sha256 /as /sha1 &quot;%25SHA2_CERTTHUMBPRINT%25&quot; &quot;$(TargetDir)engine.exe&quot;&#xA;  &quot;%25WIX%25\bin\insignia.exe&quot; -ab &quot;$(TargetDir)engine.exe&quot; &quot;$(TargetDir)$(TargetFileName)&quot; -o &quot;$(TargetDir)$(TargetFileName)&quot;&#xA;  &quot;%25SIGNTOOL%25&quot; sign /v /sha1 &quot;%25SHA1_CERTTHUMBPRINT%25&quot; /t http://timestamp.digicert.com &quot;$(TargetDir)$(TargetFileName)&quot;&#xA;  &quot;%25SIGNTOOL%25&quot; sign /v /tr http://timestamp.digicert.com /td sha256 /fd sha256 /as /sha1 &quot;%25SHA2_CERTTHUMBPRINT%25&quot; &quot;$(TargetDir)$(TargetFileName)&quot;&#xA;  del &quot;$(TargetDir)engine.exe&quot;&#xA;)" />
+  </Target>
+</Project>

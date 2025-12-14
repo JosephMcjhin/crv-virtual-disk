@@ -1,0 +1,6 @@
+LIBRARY "WiXCA"
+
+EXPORTS
+	ExecuteInstall
+	ExecuteUninstall
+	ServicePendingStop
